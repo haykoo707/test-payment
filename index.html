@@ -24,38 +24,44 @@
     let spins = parseInt(localStorage.getItem("spins") || "0");
     updateSpins();
 
-    document.getElementById("payBtn").addEventListener("click", async () => {
-      try {
-        // Open wallet & send transaction
-        const tx = await tonconnect.sendTransaction({
-          to: RECEIVER,
-          value: AMOUNT
-        });
-
-        const txHash = tx.hash; // ավտոմատ
-        console.log("Transaction hash:", txHash);
-
-        // Send to backend for verification
-        const res = await fetch(`${BACKEND_URL}/check-payment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ txHash })
-        });
-
-        const data = await res.json();
-        if (data.success) {
-          spins++;
-          localStorage.setItem("spins", spins);
-          updateSpins();
-          document.getElementById("result").innerText = "✅ Payment OK! 1 spin added!";
-        } else {
-          document.getElementById("result").innerText = "❌ Payment failed!";
-        }
-      } catch (err) {
-        console.error(err);
-        document.getElementById("result").innerText = "❌ Payment cancelled or failed!";
-      }
+   document.getElementById("payBtn").addEventListener("click", async () => {
+  try {
+    // Open wallet & send transaction
+    const tx = await tonconnect.sendTransaction({
+      to: RECEIVER,
+      value: AMOUNT
     });
+
+    const txHash = tx.hash; 
+    console.log("Transaction hash:", txHash);
+
+    // Send to backend for verification
+    const res = await fetch(`${BACKEND_URL}/check-payment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ txHash })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      spins++;
+      localStorage.setItem("spins", spins);
+      updateSpins();
+      document.getElementById("result").innerText = "✅ Payment verified! 1 spin added!";
+      
+      // Ավտոմատ ակտիվացնում ենք spin կոճակը
+      document.getElementById("spinBtn").disabled = false;
+    } else {
+      document.getElementById("result").innerText = "❌ Payment not verified!";
+    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById("result").innerText = "❌ Payment cancelled or failed!";
+  }
+});
+
+
 
     // Spin button
     document.getElementById("spinBtn").addEventListener("click", () => {
