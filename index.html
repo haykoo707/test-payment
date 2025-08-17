@@ -4,19 +4,94 @@
   <meta charset="UTF-8" />
   <title>TON Spin Demo</title>
   <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: white;
+    }
+    
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    
+    h2 {
+      font-size: 2.5em;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    button {
+      background: linear-gradient(45deg, #ff6b6b, #ee5a6f);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    button:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    
+    #connect-root {
+      margin: 20px 0;
+    }
+    
+    #spinsLeft, #result {
+      font-size: 1.2em;
+      margin: 20px 0;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .loading {
+      display: none;
+      margin: 10px 0;
+    }
+    
+    .loading.show {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <h2>Spin the Wheel</h2>
-  <div id="connect-root"></div>
-  <button id="payBtn" disabled>Pay 0.0001 TON & Get Spin</button>
-  <button id="spinBtn" disabled>🎡 Spin Now</button>
-  <div id="spinsLeft"></div>
-  <div id="result"></div>
+  <div class="container">
+    <h2>🎰 TON Spin Demo</h2>
+    <div id="connect-root"></div>
+    <button id="payBtn" disabled>💰 Pay 0.0001 TON & Get Spin</button>
+    <div class="loading" id="loading">⏳ Processing payment...</div>
+    <button id="spinBtn" disabled>🎡 Spin Now</button>
+    <div id="spinsLeft">Spins left: 0</div>
+    <div id="result"></div>
+  </div>
 
   <script>
     const BACKEND_URL = "https://ton-check.onrender.com";
     const RECEIVER = "UQBfrU75WGhBLnRpBs1ImWE5sPdxKsFMBgogpD578JxXyDbK";
-    const AMOUNT = 100000;
+    const AMOUNT = 100000; // 0.0001 TON in nanoTONs
 
     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
       manifestUrl: "https://haykoo707.github.io/test-payment/tonconnect-manifest.json",
@@ -24,78 +99,157 @@
       uiPreferences: { theme: "SYSTEM" }
     });
 
-    let spins = parseInt(localStorage.getItem("spins") || "0");
+    // Use in-memory storage instead of localStorage for better reliability
+    let spins = 0;
     const payBtn = document.getElementById("payBtn");
     const spinBtn = document.getElementById("spinBtn");
     const resultEl = document.getElementById("result");
     const spinsEl = document.getElementById("spinsLeft");
+    const loadingEl = document.getElementById("loading");
 
     function updateSpins() {
       spinsEl.innerText = `Spins left: ${spins}`;
       spinBtn.disabled = spins <= 0;
       payBtn.disabled = !tonConnectUI.account;
     }
+
+    function showLoading(show = true) {
+      loadingEl.classList.toggle('show', show);
+      payBtn.disabled = show || !tonConnectUI.account;
+    }
+
+    function showResult(message, isSuccess = false) {
+      resultEl.innerText = message;
+      resultEl.style.background = isSuccess ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)';
+      setTimeout(() => {
+        resultEl.style.background = 'rgba(255, 255, 255, 0.1)';
+      }, 3000);
+    }
+
     updateSpins();
-    tonConnectUI.connectionRestored.then(updateSpins);
+
+    // Handle wallet connection
+    tonConnectUI.connectionRestored.then((restored) => {
+      console.log('Connection restored:', restored);
+      updateSpins();
+    });
+
+    tonConnectUI.onStatusChange(wallet => {
+      console.log('Wallet status changed:', wallet);
+      updateSpins();
+    });
 
     payBtn.addEventListener("click", async () => {
+      showLoading(true);
+      showResult("Processing payment...");
+
       try {
         const tx = {
           validUntil: Math.floor(Date.now() / 1000) + 600,
-          messages: [{ address: RECEIVER, amount: AMOUNT.toString() }]
+          messages: [{
+            address: RECEIVER,
+            amount: AMOUNT.toString()
+          }]
         };
 
+        console.log('Sending transaction:', tx);
         const sendRes = await tonConnectUI.sendTransaction(tx);
-        console.log("sendRes:", sendRes);
+        console.log("Transaction result:", sendRes);
 
-        const txHash = sendRes?.hash;
-        const txBoc  = sendRes?.boc;
-
-        let data;
-        if (txHash) {
-          const res = await fetch(`${BACKEND_URL}/check-payment`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ txHash })
-          });
-          data = await res.json();
-        } else if (txBoc) {
-          const res = await fetch(`${BACKEND_URL}/check-payment`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ txBoc, from: tonConnectUI.account.address, to: RECEIVER, amount: AMOUNT })
-          });
-          data = await res.json();
-        } else {
-          resultEl.innerText = "❌ Wallet did not return txHash or boc!";
-          return;
+        if (!sendRes) {
+          throw new Error("Transaction was cancelled");
         }
+
+        // Wait a bit for transaction to be processed
+        showResult("⏳ Verifying payment...");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const txHash = sendRes.boc ? null : sendRes; // Some wallets return just hash
+        const txBoc = sendRes.boc;
+
+        let requestBody = {};
+        if (typeof sendRes === 'string') {
+          // If sendRes is just a hash string
+          requestBody = { txHash: sendRes };
+        } else if (sendRes.boc) {
+          // If sendRes contains boc
+          requestBody = {
+            txBoc: sendRes.boc,
+            from: tonConnectUI.account.address,
+            to: RECEIVER,
+            amount: AMOUNT
+          };
+        } else {
+          throw new Error("Invalid transaction result format");
+        }
+
+        console.log('Checking payment with:', requestBody);
+
+        const response = await fetch(`${BACKEND_URL}/check-payment`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Payment verification result:', data);
 
         if (data.success) {
           spins++;
-          localStorage.setItem("spins", spins);
           updateSpins();
-          resultEl.innerText = "✅ Payment verified! 1 spin added!";
-          spinBtn.disabled = false;
+          showResult("✅ Payment verified! 1 spin added!", true);
         } else {
-          resultEl.innerText = "❌ Payment not verified!";
+          showResult("❌ Payment verification failed. Please try again.");
         }
 
       } catch (err) {
-        console.error(err);
-        resultEl.innerText = "❌ Payment cancelled or failed!";
+        console.error('Payment error:', err);
+        if (err.message.includes('cancelled')) {
+          showResult("⚠️ Payment was cancelled");
+        } else if (err.message.includes('rejected')) {
+          showResult("❌ Payment was rejected");
+        } else {
+          showResult("❌ Payment failed: " + err.message);
+        }
+      } finally {
+        showLoading(false);
       }
     });
 
     spinBtn.addEventListener("click", () => {
       if (spins > 0) {
         spins--;
-        localStorage.setItem("spins", spins);
         updateSpins();
-        alert("🎡 Wheel is spinning...");
+        
+        // Simple spinning animation
+        const prizes = ["🎊 Jackpot!", "🎁 Bonus!", "🪙 Coins!", "🎯 Prize!", "💎 Gem!"];
+        const prize = prizes[Math.floor(Math.random() * prizes.length)];
+        
+        showResult("🎡 Spinning...");
+        
+        setTimeout(() => {
+          showResult(`🎉 You won: ${prize}!`, true);
+        }, 2000);
       } else {
-        alert("❌ You don’t have spins left!");
+        showResult("❌ No spins left! Buy more spins to play.");
       }
+    });
+
+    // Error handling for network issues
+    window.addEventListener('online', () => {
+      console.log('Back online');
+    });
+
+    window.addEventListener('offline', () => {
+      console.log('Gone offline');
+      showResult("⚠️ You're offline. Check your connection.");
     });
   </script>
 </body>
