@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TON Spin Demo</title>
+</head>
+<body>
+  <h2>Spin the Wheel</h2>
+  <button id="payBtn">Pay 0.0001 TON & Get Spin</button>
+  <button id="spinBtn" disabled>🎡 Spin Now</button>
+  <div id="result"></div>
+  <div id="spinsLeft"></div>
+
+  <script>
+    const BACKEND_URL = "https://ton-check.onrender.com/"; // փոխի քո backend URL
+    const RECEIVER = "UQBfrU75WGhBLnRpBs1ImWE5sPdxKsFMBgogpD578JxXyDbK"; // քո TON wallet հասցեն
+    const AMOUNT = 100000; // 0.0001 TON (in nanoton)
+
+    // load spins from localStorage
+    let spins = parseInt(localStorage.getItem("spins") || "0");
+    updateSpins();
+
+    document.getElementById("payBtn").addEventListener("click", async () => {
+      const txUrl = `ton://transfer/${RECEIVER}?amount=${AMOUNT}`;
+      window.open(txUrl, "_blank");
+
+      const txHash = prompt("Enter transaction hash after payment:");
+      if (!txHash) return alert("No transaction hash provided");
+
+      const res = await fetch(`${BACKEND_URL}/check-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ txHash })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        spins++;
+        localStorage.setItem("spins", spins);
+        updateSpins();
+        document.getElementById("result").innerText = "✅ Payment OK! 1 spin added!";
+      } else {
+        document.getElementById("result").innerText = "❌ Payment failed!";
+      }
+    });
+
+    // spin button
+    document.getElementById("spinBtn").addEventListener("click", () => {
+      if (spins > 0) {
+        spins--;
+        localStorage.setItem("spins", spins);
+        updateSpins();
+        // 👉 այստեղ կարող ես ավելացնել անիվի պտույտի animation / random prize
+        alert("🎡 Wheel is spinning...");
+      } else {
+        alert("❌ You don’t have spins left!");
+      }
+    });
+
+    function updateSpins() {
+      document.getElementById("spinsLeft").innerText = `Spins left: ${spins}`;
+      document.getElementById("spinBtn").disabled = spins <= 0;
+    }
+  </script>
+</body>
+</html>
