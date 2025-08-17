@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>TON Spin Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tonconnect/sdk@0.9.12/dist/tonconnect.min.js"></script>
 </head>
 <body>
   <h2>Spin the Wheel</h2>
@@ -12,45 +13,56 @@
   <div id="spinsLeft"></div>
 
   <script>
-    const BACKEND_URL = "https://ton-check.onrender.com/"; // փոխի քո backend URL
+    const BACKEND_URL = "https://ton-check.onrender.com/"; // դուրի քո Render backend URL
     const RECEIVER = "UQBfrU75WGhBLnRpBs1ImWE5sPdxKsFMBgogpD578JxXyDbK"; // քո TON wallet հասցեն
-    const AMOUNT = 100000; // 0.0001 TON (in nanoton)
+    const AMOUNT = 100000; // 0.0001 TON in nanoton
 
-    // load spins from localStorage
+    // Init TonConnect
+    const tonconnect = new TonConnect();
+
+    // Load spins from localStorage
     let spins = parseInt(localStorage.getItem("spins") || "0");
     updateSpins();
 
     document.getElementById("payBtn").addEventListener("click", async () => {
-      const txUrl = `ton://transfer/${RECEIVER}?amount=${AMOUNT}`;
-      window.open(txUrl, "_blank");
+      try {
+        // Open wallet & send transaction
+        const tx = await tonconnect.sendTransaction({
+          to: RECEIVER,
+          value: AMOUNT
+        });
 
-      const txHash = prompt("Enter transaction hash after payment:");
-      if (!txHash) return alert("No transaction hash provided");
+        const txHash = tx.hash; // ավտոմատ
+        console.log("Transaction hash:", txHash);
 
-      const res = await fetch(`${BACKEND_URL}/check-payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ txHash })
-      });
+        // Send to backend for verification
+        const res = await fetch(`${BACKEND_URL}/check-payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ txHash })
+        });
 
-      const data = await res.json();
-      if (data.success) {
-        spins++;
-        localStorage.setItem("spins", spins);
-        updateSpins();
-        document.getElementById("result").innerText = "✅ Payment OK! 1 spin added!";
-      } else {
-        document.getElementById("result").innerText = "❌ Payment failed!";
+        const data = await res.json();
+        if (data.success) {
+          spins++;
+          localStorage.setItem("spins", spins);
+          updateSpins();
+          document.getElementById("result").innerText = "✅ Payment OK! 1 spin added!";
+        } else {
+          document.getElementById("result").innerText = "❌ Payment failed!";
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById("result").innerText = "❌ Payment cancelled or failed!";
       }
     });
 
-    // spin button
+    // Spin button
     document.getElementById("spinBtn").addEventListener("click", () => {
       if (spins > 0) {
         spins--;
         localStorage.setItem("spins", spins);
         updateSpins();
-        // 👉 այստեղ կարող ես ավելացնել անիվի պտույտի animation / random prize
         alert("🎡 Wheel is spinning...");
       } else {
         alert("❌ You don’t have spins left!");
