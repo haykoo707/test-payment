@@ -14,7 +14,7 @@
   <div id="result"></div>
 
   <script>
-    const BACKEND_URL = "https://ton-check.onrender.com/";
+    const BACKEND_URL = "https://ton-check.onrender.com";
     const RECEIVER = "UQBfrU75WGhBLnRpBs1ImWE5sPdxKsFMBgogpD578JxXyDbK";
     const AMOUNT = 100000;
 
@@ -36,7 +36,6 @@
       payBtn.disabled = !tonConnectUI.account;
     }
     updateSpins();
-
     tonConnectUI.connectionRestored.then(updateSpins);
 
     payBtn.addEventListener("click", async () => {
@@ -45,47 +44,43 @@
           validUntil: Math.floor(Date.now() / 1000) + 600,
           messages: [{ address: RECEIVER, amount: AMOUNT.toString() }]
         };
+
         const sendRes = await tonConnectUI.sendTransaction(tx);
+        console.log("sendRes:", sendRes);
+
         const txHash = sendRes?.hash;
         const txBoc  = sendRes?.boc;
 
+        let data;
         if (txHash) {
-          // Hash path
           const res = await fetch(`${BACKEND_URL}/check-payment`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ txHash })
           });
-          const data = await res.json();
-          if (data.success) {
-            spins++;
-            localStorage.setItem("spins", spins);
-            updateSpins();
-            resultEl.innerText = "✅ Payment verified! 1 spin added!";
-            spinBtn.disabled = false;
-          } else {
-            resultEl.innerText = "❌ Payment not verified!";
-          }
+          data = await res.json();
         } else if (txBoc) {
-          // BOC path
           const res = await fetch(`${BACKEND_URL}/check-payment`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ txBoc, from: tonConnectUI.account.address, to: RECEIVER, amount: AMOUNT })
           });
-          const data = await res.json();
-          if (data.success) {
-            spins++;
-            localStorage.setItem("spins", spins);
-            updateSpins();
-            resultEl.innerText = "✅ Payment verified via BOC!";
-            spinBtn.disabled = false;
-          } else {
-            resultEl.innerText = "❌ Payment not verified via BOC!";
-          }
+          data = await res.json();
         } else {
           resultEl.innerText = "❌ Wallet did not return txHash or boc!";
+          return;
         }
+
+        if (data.success) {
+          spins++;
+          localStorage.setItem("spins", spins);
+          updateSpins();
+          resultEl.innerText = "✅ Payment verified! 1 spin added!";
+          spinBtn.disabled = false;
+        } else {
+          resultEl.innerText = "❌ Payment not verified!";
+        }
+
       } catch (err) {
         console.error(err);
         resultEl.innerText = "❌ Payment cancelled or failed!";
