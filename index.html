@@ -1,70 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>TON Spin Demo</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tonconnect/sdk@0.9.12/dist/tonconnect.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
 </head>
 <body>
   <h2>Spin the Wheel</h2>
-  <button id="payBtn">Pay 0.0001 TON & Get Spin</button>
+  <div id="connect-root"></div>
+  <button id="payBtn" disabled>Pay 0.0001 TON & Get Spin</button>
   <button id="spinBtn" disabled>🎡 Spin Now</button>
-  <div id="result"></div>
   <div id="spinsLeft"></div>
+  <div id="result"></div>
 
   <script>
-    const BACKEND_URL = "https://ton-check.onrender.com/"; // դուրի քո Render backend URL
-    const RECEIVER = "UQBfrU75WGhBLnRpBs1ImWE5sPdxKsFMBgogpD578JxXyDbK"; // քո TON wallet հասցեն
-    const AMOUNT = 100000; // 0.0001 TON in nanoton
+    const BACKEND_URL = "http://localhost:3000"; // կամ production URL
+    const RECEIVER = "UQBfrU75WGhBLnRpBs1ImWE5sPdxKsFMBgogpD578JxXyDbK";
+    const AMOUNT = 100000;
 
-    // Init TonConnect
-    const tonconnect = new TonConnect();
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: "https://haykoo707.github.io/test-payment/tonconnect-manifest.json",
+      buttonRootId: "connect-root",
+      uiPreferences: { theme: "SYSTEM" }
+    });
 
-    // Load spins from localStorage
     let spins = parseInt(localStorage.getItem("spins") || "0");
+    const payBtn = document.getElementById("payBtn");
+    const spinBtn = document.getElementById("spinBtn");
+    const resultEl = document.getElementById("result");
+    const spinsEl = document.getElementById("spinsLeft");
+
+    function updateSpins() {
+      spinsEl.innerText = `Spins left: ${spins}`;
+      spinBtn.disabled = spins <= 0;
+      payBtn.disabled = !tonConnectUI.account;
+    }
     updateSpins();
 
-   document.getElementById("payBtn").addEventListener("click", async () => {
-  try {
-    // Open wallet & send transaction
-    const tx = await tonconnect.sendTransaction({
-      to: RECEIVER,
-      value: AMOUNT
+    tonConnectUI.connectionRestored.then(updateSpins);
+
+    payBtn.addEventListener("click", async () => {
+      try {
+        const tx = {
+          validUntil: Math.floor(Date.now() / 1000) + 600,
+          messages: [{ address: RECEIVER, amount: AMOUNT.toString() }]
+        };
+        const sendRes = await tonConnectUI.sendTransaction(tx);
+        const txHash = sendRes?.hash;
+
+        if (!txHash) {
+          resultEl.innerText = "❌ Wallet did not return txHash!";
+          return;
+        }
+
+        const res = await fetch(`${BACKEND_URL}/check-payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ txHash })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          spins++;
+          localStorage.setItem("spins", spins);
+          updateSpins();
+          resultEl.innerText = "✅ Payment verified! 1 spin added!";
+          spinBtn.disabled = false;
+        } else {
+          resultEl.innerText = "❌ Payment not verified!";
+        }
+      } catch (err) {
+        console.error(err);
+        resultEl.innerText = "❌ Payment cancelled or failed!";
+      }
     });
 
-    const txHash = tx.hash; 
-    console.log("Transaction hash:", txHash);
-
-    // Send to backend for verification
-    const res = await fetch(`${BACKEND_URL}/check-payment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ txHash })
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      spins++;
-      localStorage.setItem("spins", spins);
-      updateSpins();
-      document.getElementById("result").innerText = "✅ Payment verified! 1 spin added!";
-      
-      // Ավտոմատ ակտիվացնում ենք spin կոճակը
-      document.getElementById("spinBtn").disabled = false;
-    } else {
-      document.getElementById("result").innerText = "❌ Payment not verified!";
-    }
-  } catch (err) {
-    console.error(err);
-    document.getElementById("result").innerText = "❌ Payment cancelled or failed!";
-  }
-});
-
-
-
-    // Spin button
-    document.getElementById("spinBtn").addEventListener("click", () => {
+    spinBtn.addEventListener("click", () => {
       if (spins > 0) {
         spins--;
         localStorage.setItem("spins", spins);
@@ -74,11 +85,6 @@
         alert("❌ You don’t have spins left!");
       }
     });
-
-    function updateSpins() {
-      document.getElementById("spinsLeft").innerText = `Spins left: ${spins}`;
-      document.getElementById("spinBtn").disabled = spins <= 0;
-    }
   </script>
 </body>
 </html>
