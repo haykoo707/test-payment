@@ -2,253 +2,339 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>TON Spin Demo</title>
+  <title>TON Spin Game</title>
   <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 600px;
+      max-width: 700px;
       margin: 0 auto;
       padding: 20px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       color: white;
+      text-align: center;
     }
-    
+
     .container {
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
       border-radius: 20px;
       padding: 30px;
-      text-align: center;
       box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
       border: 1px solid rgba(255, 255, 255, 0.18);
     }
-    
-    h2 {
-      font-size: 2.5em;
-      margin-bottom: 30px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
+
+    h2 { font-size: 2.5em; margin-bottom: 20px; }
+
     button {
       border: none;
-      padding: 15px 30px;
+      padding: 12px 25px;
       font-size: 16px;
       border-radius: 50px;
       cursor: pointer;
-      margin: 10px;
+      margin: 8px;
       transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
-    
+
     button:hover:not(:disabled) {
       transform: translateY(-3px);
       box-shadow: 0 6px 20px rgba(0,0,0,0.3);
     }
-    
-    button:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-    
-    #connect-root {
-      margin: 20px 0;
-    }
-    
-    #spinsLeft, #result {
+
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #connect-root { margin: 20px 0; }
+
+    #spinsLeft, #userScore, #result {
       font-size: 1.2em;
-      margin: 20px 0;
+      margin: 15px 0;
       padding: 10px;
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.1);
     }
-    
-    .loading {
-      display: none;
-      margin: 10px 0;
+
+    .loading { display: none; }
+    .loading.show { display: block; }
+
+    /* 🎡 Spin Wheel */
+    .wheel-container { margin: 30px auto; position: relative; width: 300px; height: 300px; }
+    .wheel {
+      width: 100%; height: 100%; border-radius: 50%;
+      border: 10px solid #fff;
+      position: relative;
+      overflow: hidden;
+      transition: transform 4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
     }
-    
-    .loading.show {
-      display: block;
+    .segment {
+      position: absolute;
+      width: 50%; height: 50%;
+      background: rgba(255,255,255,0.2);
+      transform-origin: 100% 100%;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 14px; font-weight: bold;
+      color: #fff; text-shadow: 1px 1px 2px black;
+    }
+    .arrow {
+      position: absolute;
+      top: -25px; left: 50%; transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 40px solid red;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>🎰 TON Spin Demo</h2>
+    <h2>🎰 TON Spin Game</h2>
     <div id="connect-root"></div>
-    <button id="payBtn" disabled>💰 Pay 0.0001 TON & Get Spin</button>
+
+    <!-- Payment Packages -->
+    <button class="pay-package" data-spins="1" data-amount="100000">💰 0.0001 TON = 1 Spin</button>
+    <button class="pay-package" data-spins="3" data-amount="1000000000">💰 1 TON = 3 Spins</button>
+    <button class="pay-package" data-spins="5" data-amount="1500000000">💰 1.5 TON = 5 Spins</button>
+    <button class="pay-package" data-spins="10" data-amount="2800000000">💰 2.8 TON = 10 Spins</button>
+
     <div class="loading" id="loading">⏳ Processing payment...</div>
+
+    <!-- Wheel -->
+    <div class="wheel-container">
+      <div class="arrow"></div>
+      <div class="wheel" id="wheel"></div>
+    </div>
+
     <button id="spinBtn" disabled>🎡 Spin Now</button>
+
     <div id="spinsLeft">Spins left: 0</div>
+    <div id="userScore">Score: 0</div>
     <div id="result"></div>
   </div>
 
-  <script>
-    const BACKEND_URL = "https://ton-check.onrender.com";
-    const RECEIVER = "UQCb8i7V_2QxUurP0ZCIHCVglCmKSeKjIzgHekP3XDondvbm";
-    const AMOUNT = 100000; // 0.0001 TON in nanoTONs
+<script>
+// Replace the script section in your HTML with this updated version
 
-    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-      manifestUrl: "https://haykoo707.github.io/test-payment/tonconnect-manifest.json",
-      buttonRootId: "connect-root",
-      uiPreferences: { theme: "SYSTEM" }
+const BACKEND_URL = "https://ton-check.onrender.com";
+const RECEIVER = "UQCb8i7V_2QxUurP0ZCIHCVglCmKSeKjIzgHekP3XDondvbm";
+
+const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+  manifestUrl: "https://haykoo707.github.io/test-payment/tonconnect-manifest.json",
+  buttonRootId: "connect-root",
+  uiPreferences: { theme: "SYSTEM" }
+});
+
+let spins = 0;
+let userScore = parseInt(localStorage.getItem("userScore")) || 0;
+
+const spinBtn = document.getElementById("spinBtn");
+const spinsEl = document.getElementById("spinsLeft");
+const scoreEl = document.getElementById("userScore");
+const resultEl = document.getElementById("result");
+const wheel = document.getElementById("wheel");
+const loadingEl = document.getElementById("loading");
+
+const rewards = [1000, 2000, 4000, 5000, 7500, 10000, 20000, 5000];
+
+// Build wheel segments
+function buildWheel() {
+  const segmentAngle = 360 / rewards.length;
+  rewards.forEach((reward, i) => {
+    const segment = document.createElement("div");
+    segment.className = "segment";
+    segment.style.transform = `rotate(${i * segmentAngle}deg) skewY(${90 - segmentAngle}deg)`;
+    segment.innerText = `+${reward}`;
+    wheel.appendChild(segment);
+  });
+}
+buildWheel();
+
+function updateUI() {
+  spinsEl.innerText = `Spins left: ${spins}`;
+  scoreEl.innerText = `Score: ${userScore}`;
+  spinBtn.disabled = spins <= 0;
+}
+updateUI();
+
+function showLoading(show = true) {
+  loadingEl.classList.toggle("show", show);
+}
+
+// Show result message
+function showResult(message, isSuccess = true) {
+  resultEl.innerText = message;
+  resultEl.style.color = isSuccess ? '#4ade80' : '#f87171';
+}
+
+// Handle wallet connection
+tonConnectUI.onStatusChange(wallet => {
+  document.querySelectorAll(".pay-package").forEach(btn => {
+    btn.disabled = !wallet;
+  });
+  updateUI();
+});
+
+// Verify payment with backend
+async function verifyPayment(senderAddress, txHash = null) {
+  try {
+    const payload = { senderAddress };
+    if (txHash) payload.txHash = txHash;
+
+    console.log("Verifying payment:", payload);
+
+    const response = await fetch(`${BACKEND_URL}/check-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
 
-    // Use in-memory storage instead of localStorage for better reliability
-    let spins = 0;
-    const payBtn = document.getElementById("payBtn");
-    const spinBtn = document.getElementById("spinBtn");
-    const resultEl = document.getElementById("result");
-    const spinsEl = document.getElementById("spinsLeft");
-    const loadingEl = document.getElementById("loading");
-
-    function updateSpins() {
-      spinsEl.innerText = `Spins left: ${spins}`;
-      spinBtn.disabled = spins <= 0;
-      payBtn.disabled = !tonConnectUI.account;
+    if (!response.ok) {
+      throw new Error(`Server responded with status: ${response.status}`);
     }
 
-    function showLoading(show = true) {
-      loadingEl.classList.toggle('show', show);
-      payBtn.disabled = show || !tonConnectUI.account;
-    }
+    const result = await response.json();
+    console.log("Payment verification result:", result);
 
-    function showResult(message, isSuccess = false) {
-      resultEl.innerText = message;
-      resultEl.style.background = isSuccess ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)';
-      setTimeout(() => {
-        resultEl.style.background = 'rgba(255, 255, 255, 0.1)';
-      }, 3000);
-    }
+    return result;
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    throw new Error(`Payment verification failed: ${error.message}`);
+  }
+}
 
-    updateSpins();
+// Payment packages
+document.querySelectorAll(".pay-package").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const spinsToAdd = parseInt(btn.dataset.spins);
+    const amount = btn.dataset.amount;
+    
+    // Disable button and show loading
+    btn.disabled = true;
+    showLoading(true);
+    showResult("💳 Initiating payment...", true);
 
-    // Handle wallet connection
-    tonConnectUI.connectionRestored.then((restored) => {
-      console.log('Connection restored:', restored);
-      updateSpins();
-    });
-
-    tonConnectUI.onStatusChange(wallet => {
-      console.log('Wallet status changed:', wallet);
-      updateSpins();
-    });
-
-    payBtn.addEventListener("click", async () => {
-      showLoading(true);
-      showResult("Processing payment...");
-
-      try {
-        const tx = {
-          validUntil: Math.floor(Date.now() / 1000) + 600,
-          messages: [{
-            address: RECEIVER,
-            amount: AMOUNT.toString()
-          }]
-        };
-
-        console.log('Sending transaction:', tx);
-        const sendRes = await tonConnectUI.sendTransaction(tx);
-        console.log("Transaction result:", sendRes);
-
-        if (!sendRes) {
-          throw new Error("Transaction was cancelled");
-        }
-
-        // Wait a bit for transaction to be processed
-        showResult("⏳ Verifying payment...");
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        const txHash = sendRes.boc ? null : sendRes; // Some wallets return just hash
-        const txBoc = sendRes.boc;
-
-        let requestBody = {};
-        if (typeof sendRes === 'string') {
-          // If sendRes is just a hash string
-          requestBody = { txHash: sendRes };
-        } else if (sendRes.boc) {
-          // If sendRes contains boc
-          requestBody = {
-            txBoc: sendRes.boc,
-            from: tonConnectUI.account.address,
-            to: RECEIVER,
-            amount: AMOUNT
-          };
-        } else {
-          throw new Error("Invalid transaction result format");
-        }
-
-        console.log('Checking payment with:', requestBody);
-
-        const response = await fetch(`${BACKEND_URL}/check-payment`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('Payment verification result:', data);
-
-        if (data.success) {
-          spins++;
-          updateSpins();
-          showResult("✅ Payment verified! 1 spin added!", true);
-        } else {
-          showResult("❌ Payment verification failed. Please try again.");
-        }
-
-      } catch (err) {
-        console.error('Payment error:', err);
-        if (err.message.includes('cancelled')) {
-          showResult("⚠️ Payment was cancelled");
-        } else if (err.message.includes('rejected')) {
-          showResult("❌ Payment was rejected");
-        } else {
-          showResult("❌ Payment failed: " + err.message);
-        }
-      } finally {
-        showLoading(false);
+    try {
+      // Get current wallet
+      const wallet = tonConnectUI.wallet;
+      if (!wallet) {
+        throw new Error("Wallet not connected");
       }
-    });
 
-    spinBtn.addEventListener("click", () => {
-      if (spins > 0) {
-        spins--;
-        updateSpins();
-        
-        // Simple spinning animation
-        const prizes = ["🎊 Jackpot!", "🎁 Bonus!", "🪙 Coins!", "🎯 Prize!", "💎 Gem!"];
-        const prize = prizes[Math.floor(Math.random() * prizes.length)];
-        
-        showResult("🎡 Spinning...");
-        
-        setTimeout(() => {
-          showResult(`🎉 You won: ${prize}!`, true);
-        }, 2000);
-      } else {
-        showResult("❌ No spins left! Buy more spins to play.");
+      const senderAddress = wallet.account.address;
+
+      // Create transaction
+      const tx = {
+        validUntil: Math.floor(Date.now() / 1000) + 600, // 10 minutes
+        messages: [{
+          address: RECEIVER,
+          amount: amount.toString()
+        }]
+      };
+
+      showResult("📱 Please confirm transaction in your wallet...", true);
+
+      // Send transaction
+      const sendResult = await tonConnectUI.sendTransaction(tx);
+      if (!sendResult || !sendResult.boc) {
+        throw new Error("Transaction was not sent or confirmed");
       }
-    });
 
-    // Error handling for network issues
-    window.addEventListener('online', () => {
-      console.log('Back online');
-    });
+      console.log("Transaction sent:", sendResult);
+      showResult("⏳ Transaction sent! Verifying payment...", true);
 
-    window.addEventListener('offline', () => {
-      console.log('Gone offline');
-      showResult("⚠️ You're offline. Check your connection.");
-    });
-  </script>
+      // Wait for transaction to be processed and indexed
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // Verify payment with backend
+      let verificationAttempts = 0;
+      const maxAttempts = 6; // 6 attempts over ~30 seconds
+      
+      while (verificationAttempts < maxAttempts) {
+        try {
+          const verification = await verifyPayment(senderAddress);
+          
+          if (verification.success) {
+            // Payment verified successfully
+            spins += verification.spins;
+            updateUI();
+            showResult(`✅ Payment verified! You received ${verification.spins} spins!`, true);
+            console.log("Payment successful:", verification);
+            return; // Exit successfully
+          } else {
+            console.log(`Verification attempt ${verificationAttempts + 1}: Payment not yet confirmed`);
+          }
+        } catch (verifyError) {
+          console.log(`Verification attempt ${verificationAttempts + 1} failed:`, verifyError.message);
+        }
+
+        verificationAttempts++;
+        
+        if (verificationAttempts < maxAttempts) {
+          showResult(`🔍 Verifying payment... (${verificationAttempts}/${maxAttempts})`, true);
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds between attempts
+        }
+      }
+
+      // If we get here, verification failed after all attempts
+      throw new Error("Payment verification timed out. Please check your transaction and try again.");
+
+    } catch (err) {
+      console.error("Payment error:", err);
+      showResult(`❌ Payment failed: ${err.message}`, false);
+    } finally {
+      // Re-enable button and hide loading
+      btn.disabled = false;
+      showLoading(false);
+    }
+  });
+});
+
+// Spin animation
+spinBtn.addEventListener("click", () => {
+  if (spins <= 0) return;
+  
+  // Disable spin button during animation
+  spinBtn.disabled = true;
+  spins--;
+  updateUI();
+
+  const segmentAngle = 360 / rewards.length;
+  const winningIndex = Math.floor(Math.random() * rewards.length);
+  const rotation = 360 * 5 + (360 - winningIndex * segmentAngle - segmentAngle/2);
+
+  wheel.style.transition = "transform 4s cubic-bezier(0.17,0.67,0.83,0.67)";
+  wheel.style.transform = `rotate(${rotation}deg)`;
+
+  setTimeout(() => {
+    const reward = rewards[winningIndex];
+    userScore += reward;
+    localStorage.setItem("userScore", userScore);
+    updateUI();
+    showResult(`🎉 You won +${reward} Score!`, true);
+    
+    // Re-enable spin button if there are spins left
+    spinBtn.disabled = spins <= 0;
+  }, 4200);
+});
+
+// Add some utility functions for debugging
+window.debugFunctions = {
+  checkWallet: () => tonConnectUI.wallet,
+  checkSpins: () => spins,
+  addTestSpins: (amount = 1) => {
+    spins += amount;
+    updateUI();
+    console.log(`Added ${amount} test spins`);
+  },
+  resetScore: () => {
+    userScore = 0;
+    localStorage.setItem("userScore", "0");
+    updateUI();
+    console.log("Score reset to 0");
+  }
+};
+</script>
 </body>
 </html>
