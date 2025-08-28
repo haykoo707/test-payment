@@ -8,9 +8,6 @@
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
-    <!-- Monetag SDK -->
-    <script src="//niphaumeenses.net/400/3017839" data-cfasync="false" async></script>
-    
     <style>
         * {
             margin: 0;
@@ -179,6 +176,13 @@
             display: block;
         }
         
+        .status-message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+        
         .history {
             margin-top: 30px;
             padding-top: 20px;
@@ -224,6 +228,27 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        .debug-panel {
+            margin-top: 20px;
+            padding: 15ongx;
+            background: #f0f0f0;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        
+        .debug-panel h4 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        
+        .debug-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -244,6 +269,7 @@
             <div class="ad-info">
                 <p>📺 Դիտեք գովազդը մինչև վերջ և ստացեք պարգև միավորներ։</p>
                 <p>⏱️ Գովազդը տևում է մոտ 30 վայրկյան։</p>
+                <p>🔗 Zone ID: 3017839</p>
             </div>
             
             <div class="reward-info">
@@ -251,7 +277,7 @@
             </div>
             
             <button id="watchAdBtn" class="watch-ad-btn" disabled>
-                <span id="btnText">Գովազդը բեռնվում է...</span>
+                <span id="btnText">SDK-ն բեռնվում է...</span>
             </button>
             
             <div id="statusMessage" class="status-message"></div>
@@ -261,13 +287,42 @@
             <h3>📜 Պատմություն</h3>
             <div id="historyList"></div>
         </div>
+        
+        <!-- Debug Panel -->
+        <div class="debug-panel">
+            <h4>🔧 Debug Information</h4>
+            <div class="debug-item">SDK Status: <span id="sdkStatus">Checking...</span></div>
+            <div class="debug-item">Function Available: <span id="funcStatus">Checking...</span></div>
+            <div class="debug-item">Telegram WebApp: <span id="tgStatus">Checking...</span></div>
+        </div>
     </div>
     
+    <!-- Monetag SDK - IMPORTANT: Place at the end of body -->
+    <script data-cfasync="false" async src="//niphaumeenses.net/400/3017839"></script>
+    
     <script>
+        // Debug helper
+        function updateDebug(field, value, isGood = null) {
+            const elem = document.getElementById(field);
+            if (elem) {
+                elem.textContent = value;
+                if (isGood !== null) {
+                    elem.style.color = isGood ? 'green' : 'red';
+                }
+            }
+        }
+        
         // Telegram WebApp initialization
         if (window.Telegram && window.Telegram.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
+            try {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand();
+                updateDebug('tgStatus', 'Connected', true);
+            } catch (e) {
+                updateDebug('tgStatus', 'Error: ' + e.message, false);
+            }
+        } else {
+            updateDebug('tgStatus', 'Not in Telegram', false);
         }
         
         // Points management system
@@ -277,14 +332,110 @@
                 this.history = JSON.parse(localStorage.getItem('pointsHistory') || '[]');
                 this.adReady = false;
                 this.isLoading = false;
+                this.checkAttempts = 0;
+                this.maxCheckAttempts = 30; // Check for 30 seconds
                 
                 this.updateDisplay();
-                this.initializeAd();
                 this.showHistory();
+                
+                // Start checking for SDK
+                this.checkForSDK();
             }
             
             updateDisplay() {
                 document.getElementById('userPoints').textContent = this.points;
+            }
+            
+            checkForSDK() {
+                const btn = document.getElementById('watchAdBtn');
+                const btnText = document.getElementById('btnText');
+                const statusMessage = document.getElementById('statusMessage');
+                
+                // Check if the show function exists
+                const functionExists = typeof window.show_3017839 === 'function';
+                
+                updateDebug('sdkStatus', this.checkAttempts + ' checks made');
+                updateDebug('funcStatus', functionExists ? 'Ready' : 'Not ready', functionExists);
+                
+                if (functionExists) {
+                    // SDK is loaded!
+                    updateDebug('sdkStatus', 'Loaded!', true);
+                    updateDebug('funcStatus', 'show_3017839 available', true);
+                    
+                    btn.disabled = false;
+                    btn.classList.add('ready');
+                    btnText.textContent = '🎬 Դիտել գովազդը';
+                    
+                    statusMessage.className = 'status-message info';
+                    statusMessage.textContent = '✅ SDK-ն բեռնված է և պատրաստ է';
+                    
+                    // Add click handler
+                    btn.onclick = () => this.watchAd();
+                    
+                    setTimeout(() => {
+                        statusMessage.style.display = 'none';
+                    }, 3000);
+                    
+                    // Try to preload
+                    this.preloadAd();
+                    
+                } else if (this.checkAttempts < this.maxCheckAttempts) {
+                    // Keep checking
+                    this.checkAttempts++;
+                    btnText.textContent = `SDK-ն բեռնվում է... (${this.checkAttempts}s)`;
+                    setTimeout(() => this.checkForSDK(), 1000);
+                } else {
+                    // Failed to load after 30 seconds
+                    updateDebug('sdkStatus', 'Failed to load', false);
+                    updateDebug('funcStatus', 'Not available', false);
+                    
+                    btnText.textContent = '❌ SDK-ն չբեռնվեց';
+                    statusMessage.className = 'status-message error';
+                    statusMessage.innerHTML = `
+                        ⚠️ Monetag SDK-ն չի բեռնվել։<br>
+                        Հնարավոր պատճառներ:<br>
+                        • AdBlocker է միացված<br>
+                        • Ցանցային խնդիր<br>
+                        • Zone ID-ն սխալ է
+                    `;
+                    
+                    // Add manual retry button
+                    btn.disabled = false;
+                    btn.onclick = () => {
+                        this.checkAttempts = 0;
+                        this.checkForSDK();
+                    };
+                    btnText.textContent = '🔄 Փորձել կրկին';
+                }
+            }
+            
+            preloadAd() {
+                if (typeof window.show_3017839 !== 'function') return;
+                
+                const sessionId = 'session_' + Date.now();
+                
+                // Try to preload
+                try {
+                    window.show_3017839({ 
+                        type: 'preload', 
+                        ymid: sessionId 
+                    }).then(() => {
+                        console.log('Ad preloaded successfully');
+                        this.adReady = true;
+                        
+                        const statusMessage = document.getElementById('statusMessage');
+                        statusMessage.className = 'status-message success';
+                        statusMessage.textContent = '🚀 Գովազդը նախապես բեռնված է';
+                        
+                        setTimeout(() => {
+                            statusMessage.style.display = 'none';
+                        }, 2000);
+                    }).catch((error) => {
+                        console.log('Preload failed:', error);
+                    });
+                } catch (e) {
+                    console.error('Preload error:', e);
+                }
             }
             
             addPoints(amount) {
@@ -344,48 +495,6 @@
                 });
             }
             
-            initializeAd() {
-                const btn = document.getElementById('watchAdBtn');
-                const btnText = document.getElementById('btnText');
-                const statusMessage = document.getElementById('statusMessage');
-                
-                // Preload ad
-                if (typeof window.show_3017839 === 'function') {
-                    // Generate unique ID for this session
-                    const sessionId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    
-                    // Preload the ad
-                    window.show_3017839({ 
-                        type: 'preload', 
-                        ymid: sessionId 
-                    }).then(() => {
-                        this.adReady = true;
-                        btn.disabled = false;
-                        btn.classList.add('ready');
-                        btnText.textContent = '🎬 Դիտել գովազդը';
-                        
-                        statusMessage.className = 'status-message info';
-                        statusMessage.textContent = '✅ Գովազդը պատրաստ է';
-                        setTimeout(() => {
-                            statusMessage.style.display = 'none';
-                        }, 3000);
-                    }).catch(() => {
-                        btn.disabled = false;
-                        btnText.textContent = '🔄 Փորձել կրկին';
-                        
-                        statusMessage.className = 'status-message error';
-                        statusMessage.textContent = '❌ Գովազդը հասանելի չէ այս պահին';
-                    });
-                } else {
-                    // SDK not loaded yet, retry after delay
-                    setTimeout(() => this.initializeAd(), 1000);
-                    return;
-                }
-                
-                // Handle button click
-                btn.addEventListener('click', () => this.watchAd());
-            }
-            
             watchAd() {
                 if (this.isLoading) return;
                 
@@ -393,9 +502,10 @@
                 const btnText = document.getElementById('btnText');
                 const statusMessage = document.getElementById('statusMessage');
                 
+                // Double check function exists
                 if (typeof window.show_3017839 !== 'function') {
                     statusMessage.className = 'status-message error';
-                    statusMessage.textContent = '❌ Գովազդային համակարգը չի բեռնվել';
+                    statusMessage.textContent = '❌ Գովազդային ֆունկցիան հասանելի չէ';
                     return;
                 }
                 
@@ -407,68 +517,89 @@
                 // Generate unique ID for tracking
                 const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                 
+                console.log('Calling show_3017839 with ymid:', userId);
+                
                 // Show the ad
-                window.show_3017839({ ymid: userId })
-                    .then(() => {
-                        // User successfully watched the ad
-                        this.addPoints(10);
-                        
-                        statusMessage.className = 'status-message success';
-                        statusMessage.textContent = '🎉 Շնորհակալություն! Դուք ստացաք 10 միավոր!';
-                        
-                        btnText.textContent = '✓ Հաջողվեց';
-                        
-                        // Reset button after delay
-                        setTimeout(() => {
-                            this.isLoading = false;
-                            this.adReady = false;
-                            btnText.textContent = 'Գովազդը բեռնվում է...';
-                            statusMessage.style.display = 'none';
+                try {
+                    window.show_3017839({ ymid: userId })
+                        .then(() => {
+                            // User successfully watched the ad
+                            console.log('Ad watched successfully!');
+                            this.addPoints(10);
                             
-                            // Preload next ad
-                            this.initializeAd();
-                        }, 5000);
-                    })
-                    .catch((error) => {
-                        // Ad failed or was skipped
-                        statusMessage.className = 'status-message error';
-                        statusMessage.textContent = '⚠️ Գովազդը չդիտվեց մինչև վերջ';
-                        
-                        btn.disabled = false;
-                        btn.classList.add('ready');
-                        btnText.textContent = '🔄 Փորձել կրկին';
-                        
-                        this.isLoading = false;
-                        
-                        setTimeout(() => {
-                            statusMessage.style.display = 'none';
-                        }, 5000);
-                    });
+                            statusMessage.className = 'status-message success';
+                            statusMessage.textContent = '🎉 Շնորհակալություն! Դուք ստացաք 10 միավոր!';
+                            
+                            btnText.textContent = '✓ Հաջողվեց';
+                            
+                            // Reset button after delay
+                            setTimeout(() => {
+                                this.isLoading = false;
+                                this.adReady = false;
+                                btn.disabled = false;
+                                btn.classList.add('ready');
+                                btnText.textContent = '🎬 Դիտել գովազդը';
+                                statusMessage.style.display = 'none';
+                                
+                                // Preload next ad
+                                this.preloadAd();
+                            }, 5000);
+                        })
+                        .catch((error) => {
+                            // Ad failed or was skipped
+                            console.log('Ad not completed:', error);
+                            statusMessage.className = 'status-message warning';
+                            statusMessage.textContent = '⚠️ Գովազդը չդիտվեց մինչև վերջ';
+                            
+                            btn.disabled = false;
+                            btn.classList.add('ready');
+                            btnText.textContent = '🔄 Փորձել կրկին';
+                            
+                            this.isLoading = false;
+                            
+                            setTimeout(() => {
+                                statusMessage.style.display = 'none';
+                            }, 5000);
+                        });
+                } catch (e) {
+                    console.error('Error calling show function:', e);
+                    statusMessage.className = 'status-message error';
+                    statusMessage.textContent = '❌ Սխալ՝ ' + e.message;
+                    
+                    btn.disabled = false;
+                    btnText.textContent = '🔄 Փորձել կրկին';
+                    this.isLoading = false;
+                }
             }
         }
         
-        // Initialize the system when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            const pointsManager = new PointsManager();
-            
-            // Add transition styles
-            const style = document.createElement('style');
-            style.textContent = `
-                .points-value {
-                    transition: transform 0.3s ease;
-                }
-            `;
-            document.head.appendChild(style);
-        });
-        
-        // Prevent page reload on pull-to-refresh in Telegram
-        if (window.Telegram && window.Telegram.WebApp) {
-            document.addEventListener('touchmove', (e) => {
-                if (e.touches[0].clientY > 0) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
+        // Initialize the system when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                window.pointsManager = new PointsManager();
+            });
+        } else {
+            // DOM already loaded
+            window.pointsManager = new PointsManager();
         }
+        
+        // Add transition styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .points-value {
+                transition: transform 0.3s ease;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Log for debugging
+        console.log('Script initialized. Waiting for Monetag SDK...');
+        console.log('Zone ID: 3017839');
+        
+        // Check what's available in window object (for debugging)
+        setTimeout(() => {
+            console.log('Available show functions:', Object.keys(window).filter(k => k.startsWith('show_')));
+        }, 5000);
     </script>
 </body>
 </html>
