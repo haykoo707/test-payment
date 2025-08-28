@@ -1,254 +1,474 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hy">
 <head>
-  <meta charset="UTF-8" />
-  <title>TON Spin Demo</title>
-  <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      color: white;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reward Points System - Միավորների համակարգ</title>
     
-    .container {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 30px;
-      text-align: center;
-      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-    }
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
-    h2 {
-      font-size: 2.5em;
-      margin-bottom: 30px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
+    <!-- Monetag SDK -->
+    <script src="//niphaumeenses.net/400/3017839" data-cfasync="false" async></script>
     
-    button {
-      border: none;
-      padding: 15px 30px;
-      font-size: 16px;
-      border-radius: 50px;
-      cursor: pointer;
-      margin: 10px;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    
-    button:hover:not(:disabled) {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-    }
-    
-    button:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-    
-    #connect-root {
-      margin: 20px 0;
-    }
-    
-    #spinsLeft, #result {
-      font-size: 1.2em;
-      margin: 20px 0;
-      padding: 10px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.1);
-    }
-    
-    .loading {
-      display: none;
-      margin: 10px 0;
-    }
-    
-    .loading.show {
-      display: block;
-    }
-  </style>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .points-display {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .points-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .points-value {
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .points-icon {
+            display: inline-block;
+            margin-left: 10px;
+            animation: rotate 2s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .ad-section {
+            margin-bottom: 25px;
+        }
+        
+        .ad-info {
+            background: #f7f9fc;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .ad-info p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .reward-info {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .watch-ad-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .watch-ad-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .watch-ad-btn:active {
+            transform: translateY(0);
+        }
+        
+        .watch-ad-btn.loading {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .watch-ad-btn.ready {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4); }
+            50% { box-shadow: 0 4px 25px rgba(17, 153, 142, 0.6); }
+            100% { box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4); }
+        }
+        
+        .status-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+        
+        .history {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .history h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        
+        .history-item {
+            background: #f7f9fc;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .history-item .time {
+            color: #888;
+            font-size: 12px;
+        }
+        
+        .history-item .points-earned {
+            color: #11998e;
+            font-weight: bold;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h2>🎰 TON Spin Demo</h2>
-    <div id="connect-root"></div>
-    <button id="payBtn" disabled>💰 Pay 0.0001 TON & Get Spin</button>
-    <div class="loading" id="loading">⏳ Processing payment...</div>
-    <button id="spinBtn" disabled>🎡 Spin Now</button>
-    <div id="spinsLeft">Spins left: 0</div>
-    <div id="result"></div>
-  </div>
-
-  <script>
-    const BACKEND_URL = "https://ton-check.onrender.com";
-    const RECEIVER = "UQCb8i7V_2QxUurP0ZCIHCVglCmKSeKjIzgHekP3XDondvbm";
-    const AMOUNT = 100000; // 0.0001 TON in nanoTONs
-
-    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-      manifestUrl: "https://haykoo707.github.io/test-payment/tonconnect-manifest.json",
-      buttonRootId: "connect-root",
-      uiPreferences: { theme: "SYSTEM" }
-    });
-
-    // Use in-memory storage instead of localStorage for better reliability
-    let spins = 0;
-    const payBtn = document.getElementById("payBtn");
-    const spinBtn = document.getElementById("spinBtn");
-    const resultEl = document.getElementById("result");
-    const spinsEl = document.getElementById("spinsLeft");
-    const loadingEl = document.getElementById("loading");
-
-    function updateSpins() {
-      spinsEl.innerText = `Spins left: ${spins}`;
-      spinBtn.disabled = spins <= 0;
-      payBtn.disabled = !tonConnectUI.account;
-    }
-
-    function showLoading(show = true) {
-      loadingEl.classList.toggle('show', show);
-      payBtn.disabled = show || !tonConnectUI.account;
-    }
-
-    function showResult(message, isSuccess = false) {
-      resultEl.innerText = message;
-      resultEl.style.background = isSuccess ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)';
-      setTimeout(() => {
-        resultEl.style.background = 'rgba(255, 255, 255, 0.1)';
-      }, 3000);
-    }
-
-    updateSpins();
-
-    // Handle wallet connection
-    tonConnectUI.connectionRestored.then((restored) => {
-      console.log('Connection restored:', restored);
-      updateSpins();
-    });
-
-    tonConnectUI.onStatusChange(wallet => {
-      console.log('Wallet status changed:', wallet);
-      updateSpins();
-    });
-
-    payBtn.addEventListener("click", async () => {
-      showLoading(true);
-      showResult("Processing payment...");
-
-      try {
-        const tx = {
-          validUntil: Math.floor(Date.now() / 1000) + 600,
-          messages: [{
-            address: RECEIVER,
-            amount: AMOUNT.toString()
-          }]
-        };
-
-        console.log('Sending transaction:', tx);
-        const sendRes = await tonConnectUI.sendTransaction(tx);
-        console.log("Transaction result:", sendRes);
-
-        if (!sendRes) {
-          throw new Error("Transaction was cancelled");
+    <div class="container">
+        <div class="header">
+            <h1>🎁 Վաստակեք միավորներ</h1>
+        </div>
+        
+        <div class="points-display">
+            <div class="points-label">Ձեր միավորները</div>
+            <div class="points-value">
+                <span id="userPoints">0</span>
+                <span class="points-icon">⭐</span>
+            </div>
+        </div>
+        
+        <div class="ad-section">
+            <div class="ad-info">
+                <p>📺 Դիտեք գովազդը մինչև վերջ և ստացեք պարգև միավորներ։</p>
+                <p>⏱️ Գովազդը տևում է մոտ 30 վայրկյան։</p>
+            </div>
+            
+            <div class="reward-info">
+                🎁 Ստացեք +10 միավոր յուրաքանչյուր գովազդի համար
+            </div>
+            
+            <button id="watchAdBtn" class="watch-ad-btn" disabled>
+                <span id="btnText">Գովազդը բեռնվում է...</span>
+            </button>
+            
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+        
+        <div class="history" id="historySection" style="display: none;">
+            <h3>📜 Պատմություն</h3>
+            <div id="historyList"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Telegram WebApp initialization
+        if (window.Telegram && window.Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
         }
-
-        // Wait a bit for transaction to be processed
-        showResult("⏳ Verifying payment...");
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        const txHash = sendRes.boc ? null : sendRes; // Some wallets return just hash
-        const txBoc = sendRes.boc;
-
-        let requestBody = {};
-        if (typeof sendRes === 'string') {
-          // If sendRes is just a hash string
-          requestBody = { txHash: sendRes };
-        } else if (sendRes.boc) {
-          // If sendRes contains boc
-          requestBody = {
-            txBoc: sendRes.boc,
-            from: tonConnectUI.account.address,
-            to: RECEIVER,
-            amount: AMOUNT
-          };
-        } else {
-          throw new Error("Invalid transaction result format");
+        
+        // Points management system
+        class PointsManager {
+            constructor() {
+                this.points = parseInt(localStorage.getItem('userPoints') || '0');
+                this.history = JSON.parse(localStorage.getItem('pointsHistory') || '[]');
+                this.adReady = false;
+                this.isLoading = false;
+                
+                this.updateDisplay();
+                this.initializeAd();
+                this.showHistory();
+            }
+            
+            updateDisplay() {
+                document.getElementById('userPoints').textContent = this.points;
+            }
+            
+            addPoints(amount) {
+                this.points += amount;
+                localStorage.setItem('userPoints', this.points.toString());
+                
+                // Add to history
+                const historyItem = {
+                    points: amount,
+                    timestamp: new Date().toISOString(),
+                    type: 'ad_reward'
+                };
+                this.history.unshift(historyItem);
+                if (this.history.length > 10) {
+                    this.history = this.history.slice(0, 10);
+                }
+                localStorage.setItem('pointsHistory', JSON.stringify(this.history));
+                
+                this.updateDisplay();
+                this.showHistory();
+                
+                // Animation effect
+                this.animatePoints();
+            }
+            
+            animatePoints() {
+                const display = document.querySelector('.points-value');
+                display.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    display.style.transform = 'scale(1)';
+                }, 300);
+            }
+            
+            showHistory() {
+                if (this.history.length === 0) return;
+                
+                const historySection = document.getElementById('historySection');
+                const historyList = document.getElementById('historyList');
+                
+                historySection.style.display = 'block';
+                historyList.innerHTML = '';
+                
+                this.history.forEach(item => {
+                    const date = new Date(item.timestamp);
+                    const timeStr = date.toLocaleTimeString('hy-AM', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.innerHTML = `
+                        <span class="time">${timeStr}</span>
+                        <span class="points-earned">+${item.points} ⭐</span>
+                    `;
+                    historyList.appendChild(historyItem);
+                });
+            }
+            
+            initializeAd() {
+                const btn = document.getElementById('watchAdBtn');
+                const btnText = document.getElementById('btnText');
+                const statusMessage = document.getElementById('statusMessage');
+                
+                // Preload ad
+                if (typeof window.show_3017839 === 'function') {
+                    // Generate unique ID for this session
+                    const sessionId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    
+                    // Preload the ad
+                    window.show_3017839({ 
+                        type: 'preload', 
+                        ymid: sessionId 
+                    }).then(() => {
+                        this.adReady = true;
+                        btn.disabled = false;
+                        btn.classList.add('ready');
+                        btnText.textContent = '🎬 Դիտել գովազդը';
+                        
+                        statusMessage.className = 'status-message info';
+                        statusMessage.textContent = '✅ Գովազդը պատրաստ է';
+                        setTimeout(() => {
+                            statusMessage.style.display = 'none';
+                        }, 3000);
+                    }).catch(() => {
+                        btn.disabled = false;
+                        btnText.textContent = '🔄 Փորձել կրկին';
+                        
+                        statusMessage.className = 'status-message error';
+                        statusMessage.textContent = '❌ Գովազդը հասանելի չէ այս պահին';
+                    });
+                } else {
+                    // SDK not loaded yet, retry after delay
+                    setTimeout(() => this.initializeAd(), 1000);
+                    return;
+                }
+                
+                // Handle button click
+                btn.addEventListener('click', () => this.watchAd());
+            }
+            
+            watchAd() {
+                if (this.isLoading) return;
+                
+                const btn = document.getElementById('watchAdBtn');
+                const btnText = document.getElementById('btnText');
+                const statusMessage = document.getElementById('statusMessage');
+                
+                if (typeof window.show_3017839 !== 'function') {
+                    statusMessage.className = 'status-message error';
+                    statusMessage.textContent = '❌ Գովազդային համակարգը չի բեռնվել';
+                    return;
+                }
+                
+                this.isLoading = true;
+                btn.disabled = true;
+                btn.classList.remove('ready');
+                btnText.innerHTML = '<span class="loader"></span> Բացվում է...';
+                
+                // Generate unique ID for tracking
+                const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                
+                // Show the ad
+                window.show_3017839({ ymid: userId })
+                    .then(() => {
+                        // User successfully watched the ad
+                        this.addPoints(10);
+                        
+                        statusMessage.className = 'status-message success';
+                        statusMessage.textContent = '🎉 Շնորհակալություն! Դուք ստացաք 10 միավոր!';
+                        
+                        btnText.textContent = '✓ Հաջողվեց';
+                        
+                        // Reset button after delay
+                        setTimeout(() => {
+                            this.isLoading = false;
+                            this.adReady = false;
+                            btnText.textContent = 'Գովազդը բեռնվում է...';
+                            statusMessage.style.display = 'none';
+                            
+                            // Preload next ad
+                            this.initializeAd();
+                        }, 5000);
+                    })
+                    .catch((error) => {
+                        // Ad failed or was skipped
+                        statusMessage.className = 'status-message error';
+                        statusMessage.textContent = '⚠️ Գովազդը չդիտվեց մինչև վերջ';
+                        
+                        btn.disabled = false;
+                        btn.classList.add('ready');
+                        btnText.textContent = '🔄 Փորձել կրկին';
+                        
+                        this.isLoading = false;
+                        
+                        setTimeout(() => {
+                            statusMessage.style.display = 'none';
+                        }, 5000);
+                    });
+            }
         }
-
-        console.log('Checking payment with:', requestBody);
-
-        const response = await fetch(`${BACKEND_URL}/check-payment`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify(requestBody)
+        
+        // Initialize the system when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const pointsManager = new PointsManager();
+            
+            // Add transition styles
+            const style = document.createElement('style');
+            style.textContent = `
+                .points-value {
+                    transition: transform 0.3s ease;
+                }
+            `;
+            document.head.appendChild(style);
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('Payment verification result:', data);
-
-        if (data.success) {
-          spins++;
-          updateSpins();
-          showResult("✅ Payment verified! 1 spin added!", true);
-        } else {
-          showResult("❌ Payment verification failed. Please try again.");
-        }
-
-      } catch (err) {
-        console.error('Payment error:', err);
-        if (err.message.includes('cancelled')) {
-          showResult("⚠️ Payment was cancelled");
-        } else if (err.message.includes('rejected')) {
-          showResult("❌ Payment was rejected");
-        } else {
-          showResult("❌ Payment failed: " + err.message);
-        }
-      } finally {
-        showLoading(false);
-      }
-    });
-
-    spinBtn.addEventListener("click", () => {
-      if (spins > 0) {
-        spins--;
-        updateSpins();
         
-        // Simple spinning animation
-        const prizes = ["🎊 Jackpot!", "🎁 Bonus!", "🪙 Coins!", "🎯 Prize!", "💎 Gem!"];
-        const prize = prizes[Math.floor(Math.random() * prizes.length)];
-        
-        showResult("🎡 Spinning...");
-        
-        setTimeout(() => {
-          showResult(`🎉 You won: ${prize}!`, true);
-        }, 2000);
-      } else {
-        showResult("❌ No spins left! Buy more spins to play.");
-      }
-    });
-
-    // Error handling for network issues
-    window.addEventListener('online', () => {
-      console.log('Back online');
-    });
-
-    window.addEventListener('offline', () => {
-      console.log('Gone offline');
-      showResult("⚠️ You're offline. Check your connection.");
-    });
-  </script>
+        // Prevent page reload on pull-to-refresh in Telegram
+        if (window.Telegram && window.Telegram.WebApp) {
+            document.addEventListener('touchmove', (e) => {
+                if (e.touches[0].clientY > 0) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+    </script>
 </body>
 </html>
